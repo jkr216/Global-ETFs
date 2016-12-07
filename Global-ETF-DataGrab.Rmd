@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "R Notebook ETF"
 output: html_notebook
 ---
 
@@ -14,6 +14,7 @@ library(dplyr)
 Global_ETF_symbols <- read_excel("~/Global-ETFs/Global-ETF-symbols.xlsx")
 Global_ETF_symbols$Inception <- ymd(Global_ETF_symbols$Inception)
 Global_ETF_symbols$Country <- gsub("iShares|MSCI|ETF|capped|currency|hedged|large-cap|all|min|vol|small-cap|adaptive|edge|\\b\\w{1,2}\\s", "", Global_ETF_symbols$Country, ignore.case = TRUE)
+Global_ETF_symbols$Country <- gsub("^\\s+|\\s+$", "", Global_ETF_symbols$Country)
 Global_ETF_symbols$Country[47]<-"United Arab Emirates"
 Global_ETF_symbols<-Global_ETF_symbols[-65, ]
 ```
@@ -31,17 +32,10 @@ getSymbols(Global_ETF_symbols$Symbol, auto.assign = TRUE, warnings = FALSE)
 ##think about the different start dates, or just live with the 2007 and map it
 testList <- do.call(merge, lapply(Global_ETF_symbols$Symbol, function(x) Cl(get(x))))
 colnames(testList) <- Global_ETF_symbols$Country
-testList
-```
-
-```{r}
-install.packages("rvest")
-library(rvest)
-rvest_test <- read_html("https://www.ishares.com/us/products/etf-product-list#!type=ishares&tab=overview&view=list&fc=43537|43538|43539|43540|43541|43543|43544|43545|43550|43558|43561|43562|43568|43570|43571|43576|43577|43578|43579|43582|43583|43592|43593|43595|43605|43606|43607|43609|43612|44070|43614|43616|43617|43618|43621|43622|43624|43628|43629|43630|43631")
-
-rvest_test
-ticks <- html_nodes(rvest_test, css = "table")
-tickers <- html_nodes(rvest_test,  ".colLocalExchangeTicker")
+duplicated(colnames(testList))
+names_unique <- testList[, !duplicated(colnames(testList))]
+colnames(names_unique)[7] <- "Korea"
+dygraph(names_unique[,"India"])
 ```
 
 
@@ -71,8 +65,17 @@ leaf_world <- leaflet(world) %>%
   addProviderTiles("CartoDB.Positron") %>% 
   setView(lng =  20, lat =  15, zoom = 2) %>%
       addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7, color =
-      ~qpal(gdp_md_est), layerId = ~iso_a3, popup = popup)
+      ~qpal(gdp_md_est), layerId = ~name, popup = popup)
 
 leaf_world
 ```
+
+```{r}
+### Save
+save(leaf_world, names_unique, file = 'sourceData.RDat')
+```
+
+
+
+
 

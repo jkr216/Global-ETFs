@@ -1,0 +1,66 @@
+---
+title: "ETF Map"
+resource_files:
+- Global-ETF-DataGrab.Rmd
+- sourceData.RDat
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    
+---
+
+```{r setup, include=FALSE}
+# Load packages and initialize data here
+library(flexdashboard)
+library(dygraphs)
+library(leaflet)
+
+##load data, the map and ETF data we saved in the Notebook
+load('sourceData.RDat')
+```
+
+World Map Time {data-orientation=rows}
+=====================================
+
+Row {data-height=600}
+-------------------------------------
+
+### World Map
+
+```{r, echo = FALSE}
+
+  leafletOutput("map1")
+
+  output$map1 <- renderLeaflet({
+    leaf_world
+  })
+```
+
+Row {data-height=400}
+-------------------------------------
+
+### Country ETF
+
+```{r, echo = FALSE}
+
+dygraphOutput("dygraph")
+  
+  clickedCountry <- eventReactive(input$map1_shape_click, {
+     return(input$map1_shape_click$id)
+     })
+   
+  output$dygraph <- renderDygraph({
+    
+    dygraph(names_unique[, as.character(clickedCountry())], main = clickedCountry()) %>%
+      dyRangeSelector(height = 20) %>%
+      dyShading(from = "2007-12-01", to = "2009-06-01", color = "#FFE6E6") %>% 
+      dyEvent(x = "2008-09-15", label = "Fin Crisis", labelLoc =
+      "top", color = "red")
+      })
+   
+```
+
+
+
+
