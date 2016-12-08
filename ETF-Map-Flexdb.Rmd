@@ -10,13 +10,22 @@ output:
     
 ---
 
+
+
+
+
 ```{r setup, include=FALSE}
-# Load packages and initialize data here
+# Load packages.
+# We need very few packages here because we did a lot of the hard work
+# in the DataGrab Notebook.
+
 library(flexdashboard)
 library(dygraphs)
 library(leaflet)
 
-##load data, the map and ETF data we saved in the Notebook
+# Load data here.  Remember, we saved the map and ETF data in this file when we 
+# imported, tidied and built them in the Notebook.
+
 load('sourceData.RDat')
 ```
 
@@ -46,17 +55,35 @@ Row {data-height=400}
 
 dygraphOutput("dygraph")
   
+  # A reactive that captures the name of the country clicked. 
+  # Note that it captures the id of the shape that was clicked, 
+  # when we built our leaflet map in the DataGrab Notebook 
+  # we prepared for this and assigned 'id = name' so we could capture
+  # the name of the country upon a click
+
   clickedCountry <- eventReactive(input$map1_shape_click, {
      return(input$map1_shape_click$id)
      })
    
   output$dygraph <- renderDygraph({
     
+    # The next line is a crucial line of code. This is wherein our map and our dygraph intersect.
+    # We pass the name of the country that was clicked to the list of xts objects in order
+    # to extract the ETF for the clicked country. Then we pass that to dygraphs.
+    
     dygraph(names_unique[, as.character(clickedCountry())], main = clickedCountry()) %>%
+      
+      # A range selector comes in handy for zooming to the start date for each ETF.
+      
       dyRangeSelector(height = 20) %>%
+      
+      ##add shading for the recession from December 2012 to June 2009
+      
       dyShading(from = "2007-12-01", to = "2009-06-01", color = "#FFE6E6") %>% 
-      dyEvent(x = "2008-09-15", label = "Fin Crisis", labelLoc =
-      "top", color = "red")
+      
+      # Add a line for an important economic event - how about the Brexit vote? 
+      
+      dyEvent(x = "2016-06-23", label = "Brexit Vote", labelLoc = "top", color = "red")
       })
    
 ```

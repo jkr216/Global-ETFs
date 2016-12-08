@@ -9,33 +9,58 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 
 ```{r}
 library(readxl)
-library(lubridate)
 library(dplyr)
-Global_ETF_symbols <- read_excel("~/Global-ETFs/Global-ETF-symbols.xlsx")
-Global_ETF_symbols$Inception <- ymd(Global_ETF_symbols$Inception)
-Global_ETF_symbols$Country <- gsub("iShares|MSCI|ETF|capped|currency|hedged|large-cap|all|min|vol|small-cap|adaptive|edge|\\b\\w{1,2}\\s", "", Global_ETF_symbols$Country, ignore.case = TRUE)
-Global_ETF_symbols$Country <- gsub("^\\s+|\\s+$", "", Global_ETF_symbols$Country)
+
+# Ironically, the most time consuming part of this Notebook was getting the ticker symbols and country
+# names into a single list and cleaned up so we could pass that list to getSymbols,
+# and eventually build a nice list for our flexdashboard. 
+# Get used to this and, ideally, start to love it! Just getting the data into a nice format
+# can be frustrating but once you wrestle with this step, you'll find that you know your data
+# backwards and forwards. 
+
+Global_ETF_symbols <- read_excel("symbols.xlsx")
+
+#Global_ETF_symbols$Inception <- ymd(Global_ETF_symbols$Inception)
+
+Global_ETF_symbols$Country <- gsub("iShares|MSCI|ETF|capped|currency|hedged|large-cap|all|min|vol|small-cap|adaptive|edge|\\b\\w{1,2}\\s|^\\s+|\\s+$", "", Global_ETF_symbols$Country, ignore.case = TRUE)
+#Global_ETF_symbols$Country <- gsub("^\\s+|\\s+$", "", Global_ETF_symbols$Country)
+
+# Rename a few countries to match their naming convention on the leaflet map
+
 Global_ETF_symbols$Country[47]<-"United Arab Emirates"
+Global_ETF_symbols$Country[7] <- "Korea"
+
+# Looks like there's an extra row - let's remove that. 
+
 Global_ETF_symbols<-Global_ETF_symbols[-65, ]
+
 ```
 
 ```{r, warning = FALSE}
 library(quantmod)
-library(PerformanceAnalytics)
+#library(PerformanceAnalytics)
 
 getSymbols(Global_ETF_symbols$Symbol, auto.assign = TRUE, warnings = FALSE)
 
-#Loop through symbols, fetch prices, and store in myList
-##lapply(Global_ETF_symbols$Symbol, function(x) {(getSymbols(x, auto.assign = FALSE))})
-##names(myList) <- Global_ETF_symbols$Country
+# think about the different start dates, or just live with the 2007 and map it
 
-##think about the different start dates, or just live with the 2007 and map it
-testList <- do.call(merge, lapply(Global_ETF_symbols$Symbol, function(x) Cl(get(x))))
-colnames(testList) <- Global_ETF_symbols$Country
-duplicated(colnames(testList))
-names_unique <- testList[, !duplicated(colnames(testList))]
-colnames(names_unique)[7] <- "Korea"
-dygraph(names_unique[,"India"])
+etf_prices <- do.call(merge, lapply(Global_ETF_symbols$Symbol, function(x) Cl(get(x))))
+
+# We want the column names to be countries so we can synch this up with the world map. Let's
+# make that change by using the 'Country' column from our original ETF data 
+# (another benefit of all that work we did with gsub to clean up the column)
+
+colnames(etf_prices) <- Global_ETF_symbols$Country
+
+# Get rid of the duplicative ETFs - that is, the countries that have more than one ETF. 
+# Why? We want one ETF per country and in come cases iShares has multiple 
+# ETFs for a country. Normally we wouldn't just get rid of the duplicates, we would have a reason
+# for keeping one or the other or all of them, but for this example the blunt instrument is fine.
+# It will also makes things smoother if we wish to join this data to our spatial data frame in the 
+# future. 
+
+etf_prices_single_country <- etf_prices[, !duplicated(colnames(etf_prices))]
+
 ```
 
 
@@ -45,17 +70,24 @@ library(rgdal)
 library(sp)
 library(leaflet)
 
-##where to find the world map
-## "http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/cultural/ne_50m_admin_0_countries.zip"
+# Were to find the world map
+# "http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/cultural/ne_50m_admin_0_countries.zip"
+# Download the zip to your machine. Then upload that zip to the IDE - which will unpack it for you. Nice! 
 
-## Create spatial data frame
-## Have a look at this in the global environment after it is loaded
-## it contains the shape file, and population and gdp data, amongst other things
+# Now use readOGR to build the map object and load into the global environment.
+# Have a look at this in the global environment after it is loaded.
+# It contains the shape file, and population and gdp data, amongst other things.
+
 world <-readOGR(".", "CopyOfne_50m_admin_0_countries", verbose = FALSE)
-##create shading by GDP
+
+# Let's take advantage of the fact that GDP estimates are already included in the dataframe
+# We will shade this map according to the GDP estimates of each country.
+
 qpal <- colorQuantile("Blues", world$gdp_md_est, n = 20)
 
-##create popup country name and economic stage
+# We want something to happen if a user clicks on the map so let's make a popup that displays the name 
+# and economic development of the country that has been clicked.
+
 popup <- paste0("<strong>Country: </strong>", 
                 world$name, 
                 "<br><strong>Market Stage: </strong>", 
@@ -71,8 +103,9 @@ leaf_world
 ```
 
 ```{r}
-### Save
-save(leaf_world, names_unique, file = 'sourceData.RDat')
+# Save the map and the ETF price data to a .RDat file.
+# We'll load this file and use it in our shiny app / flexdashboard.
+save(leaf_world, etf_prices_single_country, file = 'sourceData.RDat')
 ```
 
 
