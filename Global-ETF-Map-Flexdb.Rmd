@@ -1,30 +1,31 @@
 ---
 title: "Global ETF Map"
 resource_files:
-- sourceData.RDat
+- etfData.RDat
 runtime: shiny
 output:
   flexdashboard::flex_dashboard:
-    source_code: embed
-    
+    #source_code: embed
 ---
 
 
 ```{r setup, include=FALSE}
 # Load packages.
-# We need very few packages here because we did a lot of the hard work
-# in the DataGrab Notebook.
 
 library(flexdashboard)
 library(dygraphs)
 library(leaflet)
 library(quantmod)
 library(dplyr)
+library(dplyr)
 
-# Load data here.  Remember, we saved the map and ETF data in this file when we 
-# imported, tidied and built them in the Notebook.
+# Load data here.  Remember, we saved the map and ETF data in the  shapefile when we 
+# imported, tidied and built them in loadtfDatsourceData)
 
-load('sourceData.RDat')
+load('etfData.RDat')
+
+# The next lines are taken straight from the dataGrab Notebook. We just need
+# to rebuild that map.
 
 ytdPal <- colorQuantile("Blues", world_etf$ytd, n = 20)
 
@@ -33,34 +34,35 @@ ytdPopup <- paste0("<strong>Country: </strong>",
                 "<br><strong> Year-to-date: </strong>", 
                 world_etf$ytd, "%")
 
+
 leaf_world_etf <- leaflet(world_etf) %>%
-  addProviderTiles("Esri.WorldGrayCanvas") %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
   setView(lng =  20, lat =  15, zoom = 2) %>%
       addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7,
                   
-      # The next line of code is really important for creating the map we want to use later.       
+      # The next line of code is really important!       
       
       color =~ytdPal(ytd), layerId = ~ticker, popup = ytdPopup)
+
 ```
 
 World Map Selector {data-orientation=rows}
 =====================================
 
-Row {data-height=600}
+Row {data-height=650}
 -------------------------------------
 
 ### World Map
 
 ```{r, echo = FALSE}
+leafletOutput("map1")
 
-  leafletOutput("map1")
-
-  output$map1 <- renderLeaflet({
+output$map1 <- renderLeaflet({
     leaf_world_etf
-  })
+})
 ```
 
-Row {data-height=400}
+Row {data-height=350}
 -------------------------------------
 
 ### Country ETF
@@ -72,21 +74,19 @@ dygraphOutput("dygraph")
   # A reactive that captures the name of the country clicked. 
   # Note that it captures the id of the shape that was clicked, 
   # when we built our leaflet map in the DataGrab Notebook 
-  # we prepared for this and assigned 'id = name' so we could capture
-  # the name of the country upon a click
+  # we prepared for this and assigned 'layerId = ticker' so we could capture
+  # the ticker upon click of a country.
 
   clickedCountry <- eventReactive(input$map1_shape_click, {
      return(input$map1_shape_click$id)
      })
    
   output$dygraph <- renderDygraph({
-    
-    # The next line is a crucial line of code. This is wherein our map and our dygraph intersect.
-    # We pass the name of the country that was clicked to the list of xts objects in order
-    # to extract the ETF for the clicked country. Then we pass that to dygraphs.
-    stock1 <- getSymbols(as.character(clickedCountry()), auto.assign = FALSE)
+    validate(need(clickedCountry(), "There is no iShares ETF for that country"))
+         
+    etf <- getSymbols(as.character(clickedCountry()), auto.assign = FALSE)
 
-    dygraph(Cl(stock1), main = clickedCountry())  %>%
+    dygraph(Cl(etf), main = clickedCountry())  %>%
       
       # A range selector comes in handy for zooming to the start date for each ETF.
       
@@ -99,7 +99,8 @@ dygraphOutput("dygraph")
       # Add a line for an important economic event - how about the Brexit vote? 
       
       dyEvent(x = "2016-06-23", label = "Brexit Vote", labelLoc = "top", color = "red")
-      })
+      
+    })
    
 ```
 

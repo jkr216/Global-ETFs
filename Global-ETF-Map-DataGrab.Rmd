@@ -9,11 +9,11 @@ In previous posts, we examined how to import stock data and then calculate/displ
 
 Our app will be simple, in that it displays price histories, but it can serve as the foundation for more complicated work, as we will discuss when the app is completed in the next post.
 
-At the outset, it is crucial to note that this Notebook will serve a different purpose than our previous Notebook. As before, we will use this Notebook to test data import, wrangling, and our visualizations before taking the next step of building an interactive Shiny app. However, we are going to save objects from this Notebook into a .Rdat file, and then use that file in our app.  In that way, this Notebook is more fundamentally connected to our app than our previous Notebook. 
+At the outset, it is crucial to note that this Notebook will serve a different purpose than our previous Notebook. As before, we will use this Notebook to test data import, wrangling, and our visualizations before taking the next step of building an interactive Shiny app. However, we are going to save an object from this Notebook into a .Rdat file, and then use that file in our app.  In that way, this Notebook is more fundamentally connected to our app than our previous Notebook. 
 
 It might be helpful to have a quick look at the finished app - note that I am intentionally not sharing the app code yet because it's important to grind through this data grab Notebook first. Patience!
 
-The final app is available [here](INSERT LINK, or an iframe/snapshot of the app)
+The final app is available [here](http://colorado.rstudio.com:3939/Global-ETF-Map/).
 
 <br>
 
@@ -27,9 +27,9 @@ As we'll see, it is not strictly necessary to pass all of those tickers to 'getS
 
 Once we have confirmed that our ticker symbols are valid, it's time for step 3: build our map using a  shapefile of the world's countries. This step requires a lot of RAM but leaflet makes the process quite simple from a coding perspective. If you're new to map building, this will serve as a gentle introduction to usable interactive map.
 
-Fourth, and very importantly, we will add our ETF tickers and year-to-date performance data to our shapefile, making them accessible via clicks on the map.  At this step, we will be thankful that when we created a dataframe in step 1, we used the same country names as appear on the map. That luck or forethought will allow us to do an easy 'merge' of the data. 
+Fourth, and very importantly, we will add our ETF tickers and year-to-date performance data to our shapefile, making them accessible via clicks on the map.  At this step, we will be thankful that when we created a dataframe in step 1, we used the same country names as appear on the map. That luck or forethought will allow us to do an easy 'merge' of the data. We'll build the map once again to make sure if looks how we want it to look in the final app. 
 
-Once we have a map object with our ETF tickers added, we'll save it to a .RDat file which we can load into our Shiny app. 
+Once we have a shapefile with our ETF tickers added, we'll save it to a .RDat file which we can load into our Shiny app. 
 
 Let's get to it! 
 
@@ -111,38 +111,39 @@ colnames(etf_prices) <- etf_ticker_country$name
 tail(etf_prices, n = 5)
 ```
 
-<br>
+
 Alright, looks like we've been successful at importing the closing price history of the country ETFs. Nothing too complicated here and, again, our purpose was to test that the ticker symbols are correct. We are not going to be saving these prices for future use. 
-<br>
+
 Now it's time to build a map of the Earth!
-<br>
-First, we will need a shapefile that contains the spatial polygons for the countries of the world.
 
-Download that shapefile [here](http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/cultural/ne_50m_admin_0_countries.zip"). Warning, this is a large file!
+First, we will need a shapefile that contains the spatial polygons for the countries of the world.  
 
-After downloading the zip file to your machine, upload it to the IDE (by clicking 'upload' in the bottom right pane and then selecting the zip. The IDE will unpack it for you.  
+The next code chunk will grab a shapefile from www.naturalearthdata.com.  That shapefile has the longitude and latitude coordinates for the world's countries and some data about them.
 
-Next we'll use the 'readOGR' function from the 'rgdal' package to load the shapefile into our global environment.
+We'll then use the 'readOGR' function from the 'rgdal' package to load the shapefile into our global environment.
 
-```{r, warning = FALSE}
+
+```{r, message = FALSE}
 library(rgdal)
-library(sp)
+library(httr)
 
-# The "." below will work as a path if your file is uploaded to the same project as your Notebook.
-# So, if it doesn't work, then you're havne't uploaded the zip to the same project
-# as your Notebook! It's a good sanity check and it's important to have the 
-# shape file in the same project so that you and others can find it in the future. 
+tmp <- tempfile()
 
-world <-readOGR(".", "ne_50m_admin_0_countries", verbose = FALSE)
+httr::GET("http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/50m/cultural/ne_50m_admin_0_countries.zip", write_disk(tmp))
+
+unzip(tmp, exdir = 'ne_50m_admin_0_countries')
+
+world <-readOGR("./ne_50m_admin_0_countries", 'ne_50m_admin_0_countries', verbose = FALSE)
 ```
-Take a peak at the dataframe portion of the shapefile and scroll to the right to see some interesting things like GDP estimates and economic development stages. It's pretty nice that the shapefile contains some economic data for us. The other portion of the shapefile is the spatial data: longitude and latitude coordinates. If you're not # a cartographer, don't worry about those for now.
+
+Take a peek at the dataframe portion of the shapefile and scroll to the right to see some interesting things like GDP estimates and economic development stages. It's pretty nice that the shapefile contains some economic data for us. The other portion of the shapefile is the spatial data: longitude and latitude coordinates. If you're not # a cartographer, don't worry about those for now.
 
 ```{r}
 world@data
 ```
 
-<br>
-If you're not super familiar with spatial dataframes, that's okay because neither am I. The 'leaflet' package makes building a nice interactive map with these shapefiles relatively painless. 
+
+If you're not familiar with spatial dataframes, that's okay because neither am I. The 'leaflet' package makes building a nice interactive map with these shapefiles relatively painless. 
 
 Before building a map, let's make use of the data that was included in our dataframe. The 'gpd_md_est' column (which you can see in the dataframe above) contains GDP estimates for each country. We'll add some color to our map with shades of blue that are darker for higher GDPs and lighter for lower GDPs. 
 
@@ -150,7 +151,7 @@ Before building a map, let's make use of the data that was included in our dataf
 ```{r, warning = FALSE}
 library(leaflet)
 
-# Create a palete with different shades of blue for different
+# Create a palette with different shades of blue for different
 # GDP estimates.
 
 gdpPal <- colorQuantile("Blues", world$gdp_md_est, n = 20)
@@ -175,7 +176,7 @@ Now we can use leaflet to build a world map that is shaded by GDP and displays a
 # Build our leaflet map object.
 
 leaf_world_economy <- leaflet(world) %>%
-  addProviderTiles("CartoDB.DarkMatter") %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
   setView(lng =  20, lat =  15, zoom = 2) %>%
       addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7, color =
       ~gdpPal(gdp_md_est), layerId = ~name, popup = economyPopup)
@@ -194,6 +195,7 @@ The coincidence of country names wasn't just luck - I had the benefit of having 
 After the merging, the ticker symbols and year-to-date number columns will be added for each country that has a match in the 'name' column. For those with no match, the 'ticker' and 'ytd' columns will be filled with NA. 
 
 ```{r}
+library(sp)
 # Once we run this line of code, our ticker symbols and ytd numbers will be added
 # to the spatial dataframe.
 
@@ -216,7 +218,7 @@ The new shading is nice, but let's also have the popup display the exact
 year-to-date performance % for any detail-oriented users. 
 
 ```{r}
-#Create a popup that displays the year-to-date performance.
+# Create a popup that displays the year-to-date performance.
 
 ytdPopup <- paste0("<strong>Country: </strong>", 
                 world_etf$name,
@@ -230,8 +232,9 @@ Now we'll build another map that uses the year-to-date color scheme and popup, b
 Why is this massively important? When we eventually create a Shiny app, we want to pass ticker symbols to 'getSymbols' based on a user click. The 'layerId' is how we'll do that: user clicks on a country, we capture the 'layerId', that 'layerId' is a ticker name, we pass it to 'getSymbols.' But, that is getting ahead of ourselves. For now, here is the new map:
 
 ```{r}
+
 leaf_world_etf <- leaflet(world_etf) %>%
-  addProviderTiles("Esri.WorldGrayCanvas") %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
   setView(lng =  20, lat =  15, zoom = 2) %>%
       addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7,
                   
@@ -245,14 +248,14 @@ leaf_world_etf
 <br>
 Fantastic: we have a map that is shaded by the YTD performance of country ETFs and displays that YTD percentage in the popup. Notice the difference between this map and the previous map which was shaded by GDP: a user can quickly see which countries have ETFs and click to see more. 
 
-This map is going to play a crucial role in our Shiny app and the last step is to save it for use in our flexdashboard. 
+This map is going to play a crucial role in our Shiny app and the last step is to save the final shapefile, that we confirmed works well with leaflet, for use in our flexdashboard. 
 
 
 ```{r}
-# Save the map but NOT the ETF price data to a .RDat file.
-# We'll load this file and use it in our shiny app / flexdashboard.
+# Save the shapefile but NOT the ETF price data to a .RDat file.
+# We'll load this file and use it in our Shiny app.
 
-save(world_etf, file = 'sourceData.RDat')
+save(world_etf, file = 'etfData.RDat')
 ```
 
 Note we are not going to save the ETF price data. It's not needed in the interactive Shiny app because that data will be imported dynamically when a user clicks. That allows our dashboard to be constantly updated in real time. Remember that we loaded up the ETF data in this Notebook so that we could
