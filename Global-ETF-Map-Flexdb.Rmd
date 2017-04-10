@@ -5,11 +5,11 @@ resource_files:
 runtime: shiny
 output:
   flexdashboard::flex_dashboard:
-    #source_code: embed
+    source_code: embed
 ---
 
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 # Load packages.
 
 library(flexdashboard)
@@ -17,17 +17,17 @@ library(dygraphs)
 library(leaflet)
 library(quantmod)
 library(dplyr)
-library(dplyr)
 
-# Load data here.  Remember, we saved the map and ETF data in the  shapefile when we 
-# imported, tidied and built them in loadtfDatsourceData)
+
+# Load data here.  Remember, we saved the map and ETF data in the shapefile when we 
+# imported, tidied and built them in the Notebook.
 
 load('etfData.RDat')
 
-# The next lines are taken straight from the dataGrab Notebook. We just need
+# The next lines are taken straight from the Notebook. We just need
 # to rebuild that map.
 
-ytdPal <- colorQuantile("Blues", world_etf$ytd, n = 20)
+ytdPal <- colorQuantile("RdYlGn", world_etf$ytd, n = 20)
 
 ytdPopup <- paste0("<strong>Country: </strong>", 
                 world_etf$name,
@@ -42,7 +42,7 @@ leaf_world_etf <- leaflet(world_etf) %>%
                   
       # The next line of code is really important!       
       
-      color =~ytdPal(ytd), layerId = ~ticker, popup = ytdPopup)
+      color =~ytdPal(ytd), layerId = ~tickers, popup = ytdPopup)
 
 ```
 
@@ -86,7 +86,7 @@ dygraphOutput("dygraph")
          
     etf <- getSymbols(as.character(clickedCountry()), auto.assign = FALSE)
 
-    dygraph(Cl(etf), main = clickedCountry())  %>%
+    dygraph(Ad(etf), main = clickedCountry())  %>%
       
       # A range selector comes in handy for zooming to the start date for each ETF.
       
