@@ -126,11 +126,11 @@ Take a peek at the data frame portion of the shapefile, and scroll to the right 
 # There's quite a bit of information in the 'data' section of this geospatial dataframe.
 # For the sake of brevity, let's look at just the first 6 countries, 
 # their GDP estimates and the stage of their economy.
-world@data[c('name', 'gdp_md_est', 'economy')]
+head(world[c('name', 'gdp_md_est', 'economy')], n = 6)
 ```
 
 
-If you’re not familiar with spatial data frames, that’s okay because neither am I. The leaflet package makes building a nice interactive map with these shapefiles relatively painless.
+If you’re not familiar with spatial data, that’s okay because neither am I. The leaflet package makes building a nice interactive map with these shapefiles relatively painless.
 
 Before building a map, let’s make use of the data that was included in our data frame. The ‘gpd_md_est’ column (which you can see in the data frame above) contains GDP estimates for each country. We’ll add some color to our map with shades of blue that are darker for higher GDPs and lighter for lower GDPs.
 
@@ -195,7 +195,7 @@ Now that the ytd data is added, let’s shade the different countries according 
 # year-to-date performances. Previously, we shaded by 'world$gdp_md_est', now
 # we'll shade by 'world_etf$ytd'.
 
-ytdPal <- colorQuantile("Blues", world_etf$ytd, n = 20)
+ytdPal <- colorQuantile("RdYlGn", world_etf$ytd, n = 20)
 ```
 
 
@@ -223,7 +223,7 @@ leaf_world_etf <- leaflet(world_etf) %>%
                   
       # The next line of code is really important for creating the map we want to use later.       
       
-      color =~ytdPal(ytd), layerId = ~ticker, popup = ytdPopup)
+      color =~ytdPal(ytd), layerId = ~tickers, popup = ytdPopup)
 
 leaf_world_etf
 ```

@@ -17,6 +17,7 @@ library(dygraphs)
 library(leaflet)
 library(quantmod)
 library(dplyr)
+library(sf)
 
 
 # Load data here.  Remember, we saved the map and ETF data in the shapefile when we 
@@ -98,7 +99,7 @@ dygraphOutput("dygraph")
       
       # Add a line for an important economic event - how about the Brexit vote? 
       
-      dyEvent(x = "2016-06-23", label = "Brexit Vote", labelLoc = "top", color = "red")
+      dyEvent(x = "2016-11-08", label = "Trump!", labelLoc = "top", color = "black")
       
     })
    
