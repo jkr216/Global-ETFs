@@ -1,5 +1,5 @@
 ---
-title: "ETF Map Pre-Rendered with Leaflet"
+title: "Global ETF Map 2"
 resource_files:
 - etfData.RDat
 output: 
@@ -81,7 +81,7 @@ clickedCountry <- eventReactive(input$map1_shape_click, {
 output$dygraph <- renderDygraph({
   validate(need(clickedCountry(), "There is no iShares ETF for that country"))
   etf <- getSymbols(as.character(clickedCountry()), auto.assign = FALSE)
-  dygraph(Cl(etf), main = clickedCountry())  %>%
+  dygraph(Ad(etf), main = clickedCountry())  %>%
     dyRangeSelector(height = 20) %>%
     dyShading(from = "2007-12-01", to = "2009-06-01", color = "#FFE6E6") 
 })

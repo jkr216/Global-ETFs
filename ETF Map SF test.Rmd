@@ -1,5 +1,5 @@
 ---
-title: "ETF Map DataGrab"
+title: "ETF Map DataGrab SF Test"
 output:
   html_notebook: default
 ---
@@ -41,31 +41,26 @@ I will spare us the gsub() pain of extracting country names from the fund titles
 # Let's build a dataframe to store these ticker symbols, country names and YTD numbers.
 library(dplyr)
 
-tickers <-  c("ECH", "EDEN", "EFNL", "EIDO", "EIRL", "EIS", "ENOR", "ENZL", 
-"EPHE", "EPOL", "EPU", "ERUS", "EWA", "EWC", "EWD", "EWG", "EWH", 
-"EWI", "EWJ", "EWK", "EWL", "EWM", "EWN", "EWO", "EWP", "EWQ", 
-"EWS", "EWT", "EWU", "EWW", "EWY", "EWZ", "EZA", "FXI", "ICOL", 
-"INDA", "KSA", "QAT", "THD", "TUR", "UAE")
+ticker <-  c("EWJ",  "EWZ",  "INDA", "FXI",  "EWG",  "EWC",  "EWY",  "EWT",  "EWU",  "EWH",  "EWA",
+             "EWW",  "EWL",  "EWP", "EWS",  "EWI",  "EIDO", "ERUS", "ECH",  "EZA",  "THD",  "TUR",
+             "EWD",  "EWQ",  "EWM",  "EPU",  "EWN",  "EPOL", "EPHE", "ENZL", "EIRL", "EWK",  "EIS",
+             "EWO", "EDEN", "QAT", "UAE", "EFNL", "ENOR", "ICOL", "HEWY", "KSA")
 
-name <-   c("Chile", "Denmark", "Finland", "Indonesia", "Ireland", "Israel", 
-"Norway", "New Zealand", "Philippines", "Poland", "Peru", "Russia", 
-"Australia", "Canada", "Sweden", "Germany", "Hong Kong", "Italy", 
-"Japan", "Belgium", "Switzerland", "Malaysia", "Netherlands", 
-"Austria", "Spain", "France", "Singapore", "Taiwan", "United Kingdom", 
-"Mexico", "Korea", "Brazil", "South Africa", "China", "Colombia", 
-"India", "Saudi Arabia", "Qatar", "Thailand", "Turkey", "United Arab Emirates"
-)
+name <-   c("Japan", "Brazil" ,"India", "China", "Germany" , "Canada", "Korea", "Taiwan", 
+              "United Kingdom", "Hong Kong", "Australia", "Mexico", "Switzerland", "Spain", 
+              "Singapore", "Italy", "Indonesia", "Russia", "Chile", "South Africa", "Thailand",  
+              "Turkey", "Sweden", "France", "Malaysia", "Peru", "Netherlands", "Poland",
+              "Philippines", "New Zealand", "Ireland", "Belgium", "Israel", "Austria","Denmark",
+              "Qatar", "United Arab Emirates", "Finland", "Norway", "Colombia", "South Korea", 
+              "Saudi Arabia")
 
+ytd <- c(0.0358, 0.6314, -0.0140,  0.0721, -0.0289, 0.2198,  0.0729,  0.2029, -0.0467,  0.0897,
+         0.0944, -0.1045, -0.0623, -0.0916,  0.0305, -0.1857,  0.1309,  0.3828,  0.1987,  0.1219,
+         0.2458, -0.1053, -0.0052, -0.0199, -0.0410,  0.6015,  0.0017, -0.0481, -0.0408,  0.1394,
+         -0.1183, -0.0428, -0.0432,  0.0462, -0.1078, -0.0244, 0.0570,  0.6397, -0.0146,  0.1424,
+         0.1313,  0.0751) * 100
 
-ytd <-   c(15.82, 17.85, 14.29, 8.8, 13.53, 11.41, 1.51, 7.18, 11.79, 
-32.2, 3.45, -5.95, 9.03, -0.13, 16.2, 12.45, 17.26, 9.78, 5.98, 
-12.02, 14.13, 13.18, 17.36, 18.18, 21.76, 13.93, 16.61, 15.6, 
-7.17, 16.58, 18.3, -0.07, 10.41, 9.18, 5.51, 19.69, -1.29, -2.26, 
-7.52, 21.51, 2.85)
-
-
-
-etf_ticker_country <- data_frame(tickers, name, ytd)
+etf_ticker_country <- data_frame(ticker, name, ytd)
 
 etf_ticker_country
 ```
@@ -85,24 +80,23 @@ library(quantmod)
 # Using getSymbols to import the ETF price histories will take a minute or two or 
 # five - 42 time series is a lot of data. 
 
-# Let select just the Adjusted prices of the ETFs and merge them into a list.
-# We'll use map and the piper operator for that purpose. Again, this is for testing. It's not 
-# going into production in our app.
-library(purrr)
+getSymbols(etf_ticker_country$ticker, auto.assign = TRUE, warnings = FALSE)
 
-etf_prices <- 
-  getSymbols(etf_ticker_country$tickers, src = 'google', from = "2017-01-01", 
-             auto.assign = TRUE, warnings = FALSE) %>% 
-  map(~Cl(get(.))) %>% 
-  reduce(merge) %>%
-  `colnames<-`(etf_ticker_country$name)
-  
+# Let select just the closing prices of the ETFs and merge them into a list.
+# We'll use lapply for that purpose. Again, this is for testing purposes. It's not 
+# going into production in our app.
+
+etf_prices <- do.call(merge, lapply(etf_ticker_country$ticker, function(x) Cl(get(x))))
+
+#Change the column names to the country names from our dataframe above.
+
+colnames(etf_prices) <- etf_ticker_country$name
+
 # Take a peek at the last 5 rows of each of the time series, 
 # just to make sure it looks complete.
 
 tail(etf_prices, n = 5)
 ```
-
 
 
 Alright, it looks like we’ve been successful at importing the closing price history of the country ETFs. Nothing too complicated here and again, our purpose was to test that the ticker symbols are correct. We are not going to be saving these prices for future use. 
@@ -116,14 +110,19 @@ The next code chunk will grab a shapefile from www.naturalearthdata.com.  That s
 We'll then use the readOGR() function from the 'rgdal' package to load the shapefile into our global environment.
 
 
-```{r Import SF World, message=FALSE}
+```{r, message = FALSE}
+library(rgdal)
 library(rnaturalearth)
 library(sf)
-library(rgeos)
 
-world <- ne_countries(type = "countries",  returnclass='sf')
 
-#head(world)
+
+sf_world <- ne_countries(type = "countries", returnclass='sf')
+test<- st_simplify(sf_world, preserveTopology = FALSE, dTolerance = 0.0)
+
+class(sf_world)
+class(worldsp)
+sf_world$geometry[1]
 ```
 
 Take a peek at the data frame portion of the shapefile, and scroll to the right to see some interesting things like GDP estimates and economic development stages. It’s pretty nice that the shapefile contains some economic data for us. The other portion of the shapefile is the spatial data: longitude and latitude coordinates. If you’re not a cartographer, don’t worry about those for now.
@@ -132,11 +131,12 @@ Take a peek at the data frame portion of the shapefile, and scroll to the right 
 # There's quite a bit of information in the 'data' section of this geospatial dataframe.
 # For the sake of brevity, let's look at just the first 6 countries, 
 # their GDP estimates and the stage of their economy.
-head(world[c('name', 'gdp_md_est', 'economy')], n = 6)
+world@data[c('name', 'gdp_md_est', 'economy')]
+sf_world[c('name', 'gdp_md_est', 'economy')]
 ```
 
 
-If you’re not familiar with spatial data, that’s okay because neither am I. The leaflet package makes building a nice interactive map with these shapefiles relatively painless.
+If you’re not familiar with spatial data frames, that’s okay because neither am I. The leaflet package makes building a nice interactive map with these shapefiles relatively painless.
 
 Before building a map, let’s make use of the data that was included in our data frame. The ‘gpd_md_est’ column (which you can see in the data frame above) contains GDP estimates for each country. We’ll add some color to our map with shades of blue that are darker for higher GDPs and lighter for lower GDPs.
 
@@ -146,7 +146,7 @@ library(leaflet)
 # Create a palette with different shades of blue for different
 # GDP estimates.
 
-gdpPal <- colorQuantile("Blues", world$gdp_md_est, n = 20)
+gdpPal <- colorQuantile("Blues", sf_world$gdp_md_est, n = 20)
 ```
 
 We want something to happen when a user clicks a country. How about a popup with country
@@ -156,9 +156,9 @@ name and stage of economic development? Again, that data is included in the shap
 # Make a popup object.
 # Notice we're referencing the column names with the '$', same as we would with a non-spatial dataframe.
 economyPopup <- paste0("<strong>Country: </strong>", 
-                world$name, 
+                sf_world$name, 
                 "<br><strong>Market Stage: </strong>", 
-                 world$economy)
+                 sf_world$economy)
 ```
 
 
@@ -167,7 +167,7 @@ Now we can use leaflet to build a world map that is shaded by GDP and displays a
 ```{r}
 # Build our leaflet map object.
 
-leaf_world_economy <- leaflet(world) %>%
+leaf_world_economy <- leaflet(sf_world) %>%
   addProviderTiles("CartoDB.Positron") %>% 
   setView(lng =  20, lat =  15, zoom = 2) %>%
       addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7, color =
@@ -180,9 +180,9 @@ leaf_world_economy
 
 <br>
 
-The map looks good, but it sure would be nice if we could add the ETF ticker symbols and year-to-date data to the world spatial data frame object - and we can! Our ‘name’ column in the ETF data frame uses the same country naming convention as the ‘name’ column of the map, and those columns are both called ‘name’. Thus, we can use the merge() function from the ‘sf’ package to add the ETF data frame to the spatial data frame. This is similar to a ‘join’ using dplyr.
+The map looks good, but it sure would be nice if we could add the ETF ticker symbols and year-to-date data to the world spatial data frame object - and we can! Our ‘name’ column in the ETF data frame uses the same country naming convention as the ‘name’ column of the map, and those columns are both called ‘name’. Thus, we can use the merge() function from the ‘sp’ package to add the ETF data frame to the spatial data frame. This is similar to a ‘join’ using dplyr.
 
-The correspondence of country names wasn’t just luck - I had the benefit of having worked with this simple features dataframe in the past, and made sure the country names matched up, and now you have the benefit of having worked with this shapefile. For any future project that incorporates a map like this, give some forethought to how data might need to be merged with the shapefile. The shapefile and the new data need a way to be matched. Country names usually work well.
+The correspondence of country names wasn’t just luck - I had the benefit of having worked with this shapefile in the past, and made sure the country names matched up, and now you have the benefit of having worked with this shapefile. For any future project that incorporates a map like this, give some forethought to how data might need to be merged with the shapefile. The shapefile and the new data need a way to be matched. Country names usually work well.
 
 After the merging, the ticker symbols and year-to-date number columns will be added for each country that has a match in the ‘name’ column. For those with no match, the ‘ticker’ and ‘ytd’ columns will be filled with NA. 
 
@@ -190,19 +190,17 @@ After the merging, the ticker symbols and year-to-date number columns will be ad
 library(sf)
 # Once we run this line of code, our ticker symbols and ytd numbers will be added
 # to the spatial dataframe.
-
-world_etf <- merge(world, etf_ticker_country, by = "name", all.x = TRUE)
+world_etf <- merge(sf_world, etf_ticker_country, by = "name")
 ```
 
 Now that the ytd data is added, let’s shade the different countries according to the year-to-date performance of the country EFT, instead of by GDP as we did before. A nice side benefit of this new shading scheme: if a country has no ETF, it will remain an unattractive grey.
 
 ```{r}
-library(leaflet)
 # Create a palette with different shades of blue for different
 # year-to-date performances. Previously, we shaded by 'world$gdp_md_est', now
 # we'll shade by 'world_etf$ytd'.
 
-ytdPal <- colorQuantile("RdYlGn", world_etf$ytd, n = 20)
+ytdPal <- colorQuantile("Blues", world_etf$ytd, n = 20)
 ```
 
 
@@ -230,7 +228,7 @@ leaf_world_etf <- leaflet(world_etf) %>%
                   
       # The next line of code is really important for creating the map we want to use later.       
       
-      color =~ytdPal(ytd), layerId = ~tickers, popup = ytdPopup)
+      color =~ytdPal(ytd), layerId = ~ticker, popup = ytdPopup)
 
 leaf_world_etf
 ```
@@ -245,7 +243,7 @@ This map is going to play a crucial role in our Shiny app and the last step is t
 # Save the shapefile but NOT the ETF price data to a .RDat file.
 # We'll load this file and use it in our Shiny app.
 
-save(leaf_world_etf, file = 'etfData.RDat')
+save(world_etf, file = 'etfData.RDat')
 ```
 
 Fantastic: we have a map that is shaded by the YTD performance of country ETFs, and displays that YTD percentage in the popup. Notice the difference between this map and the previous map which was shaded by GDP: a user can quickly see which countries have ETFs and click to see more.

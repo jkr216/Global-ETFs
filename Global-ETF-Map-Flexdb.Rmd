@@ -11,41 +11,26 @@ output:
 
 ```{r setup, include = FALSE}
 # Load packages.
-
+adfadlkflksdjflk
+this is a change
+this is another change.
+and another.
 library(flexdashboard)
 library(dygraphs)
 library(leaflet)
 library(quantmod)
 library(dplyr)
-library(sf)
+library(highcharter)
 
 
-# Load data here.  Remember, we saved the map and ETF data in the shapefile when we 
-# imported, tidied and built them in the Notebook.
+# Load data here. Remember, we saved the leaflet map with tickers, country names and ytd in the
+# Notebook.
 
 load('etfData.RDat')
 
-# The next lines are taken straight from the Notebook. We just need
-# to rebuild that map.
-
-ytdPal <- colorQuantile("RdYlGn", world_etf$ytd, n = 20)
-
-ytdPopup <- paste0("<strong>Country: </strong>", 
-                world_etf$name,
-                "<br><strong> Year-to-date: </strong>", 
-                world_etf$ytd, "%")
-
-
-leaf_world_etf <- leaflet(world_etf) %>%
-  addProviderTiles("CartoDB.Positron") %>% 
-  setView(lng =  20, lat =  15, zoom = 2) %>%
-      addPolygons(stroke = FALSE, smoothFactor = 0.2, fillOpacity = .7,
-                  
-      # The next line of code is really important!       
-      
-      color =~ytdPal(ytd), layerId = ~tickers, popup = ytdPopup)
-
 ```
+
+
 
 World Map Selector {data-orientation=rows}
 =====================================
@@ -63,10 +48,10 @@ output$map1 <- renderLeaflet({
 })
 ```
 
-Row {data-height=350}
+Row {.tabset .tabset-fade}
 -------------------------------------
 
-### Country ETF
+### Dygraph
 
 ```{r, echo = FALSE}
 
@@ -75,25 +60,46 @@ dygraphOutput("dygraph")
   # A reactive that captures the name of the country clicked. 
   # Note that it captures the id of the shape that was clicked, 
   # when we built our leaflet map in the DataGrab Notebook 
-  # we prepared for this and assigned 'layerId = ticker' so we could capture
+  # we prepared for this and assigned 'layerId = tickers' so we could capture
   # the ticker upon click of a country.
 
-  clickedCountry <- eventReactive(input$map1_shape_click, {
+clickedCountry <- eventReactive(input$map1_shape_click, {
      return(input$map1_shape_click$id)
      })
-   
-  output$dygraph <- renderDygraph({
-    validate(need(clickedCountry(), "There is no iShares ETF for that country"))
-         
-    etf <- getSymbols(as.character(clickedCountry()), auto.assign = FALSE)
 
-    dygraph(Ad(etf), main = clickedCountry())  %>%
+etf <- reactive({
+  symbol <- clickedCountry()
+  getSymbols(symbols, src = 'yahoo', 
+             auto.assign = TRUE, warnings = FALSE) %>% 
+  map(~Ad(get(.))) %>% 
+  reduce(merge) %>%
+  `colnames<-`(price)
+  })
+
+asset_returns <- reactive({
+  
+prices <- etf()
+  
+  asset_returns <- 
+      prices %>% 
+      to.monthly(indexAt = "last", OHLC = FALSE) %>% 
+      tk_tbl(preserve_index = TRUE, rename_index = "date") %>% 
+      mutate(returns = (log(price) - log(lag(price))))
+})
+   
+output$dygraph <- renderDygraph({
+    
+    validate(need(input$map1_shape_click$id != "", "Please click on a country to display its ETF price history."))
+         
+    #etf <- getSymbols(as.character(clickedCountry()), src = 'google', auto.assign = FALSE)
+
+    dygraph(etf(), main = clickedCountry())  %>%
       
       # A range selector comes in handy for zooming to the start date for each ETF.
       
       dyRangeSelector(height = 20) %>%
       
-      ##add shading for the recession from December 2012 to June 2009
+      ##add shading for the recession from December 2007 to June 2009
       
       dyShading(from = "2007-12-01", to = "2009-06-01", color = "#FFE6E6") %>% 
       
@@ -103,6 +109,61 @@ dygraphOutput("dygraph")
       
     })
    
+```
+
+### Highcharter 
+
+```{r}
+
+highchartOutput("highchart")
+   
+output$highchart <- renderHighchart({
+
+validate(need(input$map1_shape_click$id != "", "Please click on a country to display its ETF price history."))
+
+highchart(type = "stock") %>% 
+  hc_title(text = as.character(clickedCountry())) %>%
+  hc_add_series(Cl(etf()), name = as.character(clickedCountry())) %>% 
+  #hc_rangeSelector(enabled = FALSE) %>% 
+  hc_navigator(enabled = FALSE) %>% 
+  hc_scrollbar(enabled = FALSE)
+})
+```
+
+
+### Scatterplot
+
+```{r}
+
+
+renderPlot({
+  asset_returns <- returns()
+  
+  ggplot(data = asset_returns, aes(x = date)) +
+  geom_point(aes(y = returns), colour = "red") +
+  #geom_point(aes(y = returns_above_MAR), colour = "green") + 
+  geom_vline(xintercept = as.numeric(as.Date("2016-11-30")), color = "blue") +
+  #geom_hline(yintercept = MAR, color = "purple", linetype = "dotted") +
+  annotate(geom="text", x=as.Date("2016-11-30"), 
+           y = -.05, label = "Trump", fontface = "plain", 
+           angle = 90, alpha = .5, vjust =  1.5) +
+  ylab("percent monthly returns")
+})
+
+```
+
+
+
+### Histogram
+
+```{r}
+
+```
+
+### Density Chart
+
+```{r}
+
 ```
 
 
